@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Strategy Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">⬡</span>
+        <span class="logo-text">AI Strategy <span class="logo-accent">Hub</span></span>
+      </div>
+      <nav class="nav">
+        <a href="#formulario" class="nav-link">Enviar Solicitud</a>
+        <a href="#dashboard" class="nav-link">Dashboard</a>
+        <a href="#repositorio" class="nav-link">Repositorio</a>
+      </nav>
+      <button class="nav-toggle" id="navToggle" aria-label="Menú">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">Área de Inteligencia Artificial</div>
+      <h1 class="hero-title">Transforma tus <span class="accent">dolores</span> en soluciones AI</h1>
+      <p class="hero-sub">Centraliza las necesidades de tu equipo, monitorea el avance por país y elimina la duplicación de esfuerzos.</p>
+      <a href="#formulario" class="btn btn-primary">Enviar mi solicitud</a>
+    </div>
+    <div class="hero-grid-bg"></div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECCIÓN 1 — FORMULARIO
+  ═══════════════════════════════════════════════════════ -->
+  <section id="formulario" class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">01</span>
+        <h2 class="section-title">Envía tu Solicitud</h2>
+        <p class="section-desc">Cuéntanos el problema que quieres resolver. Nuestro equipo lo evaluará y te dará seguimiento.</p>
+      </div>
+
+      <div class="form-card">
+        <form id="aiForm" novalidate>
+
+          <div class="form-row form-row-2">
+            <div class="form-group">
+              <label for="nombre">Tu nombre <span class="required">*</span></label>
+              <input type="text" id="nombre" name="nombre" placeholder="Ej. María González" required />
+              <span class="form-error" id="error-nombre"></span>
+            </div>
+            <div class="form-group">
+              <label for="pais">País / Región <span class="required">*</span></label>
+              <select id="pais" name="pais" required>
+                <option value="">Selecciona tu región...</option>
+                <option value="México">México</option>
+                <option value="Andina">Andina</option>
+                <option value="Chile">Chile</option>
+                <option value="Argentina">Argentina</option>
+                <option value="Uruguay">Uruguay</option>
+                <option value="Brasil">Brasil</option>
+              </select>
+              <span class="form-error" id="error-pais"></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="problema">¿Cuál es el problema a resolver? <span class="required">*</span></label>
+            <textarea id="problema" name="problema" rows="3" placeholder="Describe el dolor o ineficiencia que enfrentas hoy..." required></textarea>
+            <span class="form-error" id="error-problema"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="impacto">¿Cuál es el impacto de este problema hoy? <span class="required">*</span></label>
+            <textarea id="impacto" name="impacto" rows="3" placeholder="Ej. Perdemos 2 horas/día por proceso manual, 30% de errores en reportes..." required></textarea>
+            <span class="form-error" id="error-impacto"></span>
+          </div>
+
+          <div class="form-row form-row-2">
+            <div class="form-group">
+              <label for="usuarios">¿Quiénes serían los usuarios de esta solución? <span class="required">*</span></label>
+              <input type="text" id="usuarios" name="usuarios" placeholder="Ej. Equipo comercial, 50 personas" required />
+              <span class="form-error" id="error-usuarios"></span>
+            </div>
+            <div class="form-group">
+              <label for="equipo">¿Quién de tu equipo puede ayudar en ello?</label>
+              <input type="text" id="equipo" name="equipo" placeholder="Ej. Ana Martínez – Data Analyst" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="medicion">¿Cómo podemos medir si lo solucionamos? <span class="required">*</span></label>
+            <textarea id="medicion" name="medicion" rows="2" placeholder="Ej. Reducir tiempo de proceso de 5 días a 1 día, tasa de error < 5%..." required></textarea>
+            <span class="form-error" id="error-medicion"></span>
+          </div>
+
+          <div class="form-row form-row-2">
+            <div class="form-group">
+              <label for="urgencia">Urgencia <span class="required">*</span></label>
+              <select id="urgencia" name="urgencia" required>
+                <option value="">Selecciona la urgencia...</option>
+                <option value="Alta">Alta — necesitamos esto pronto</option>
+                <option value="Media">Media — importante pero no urgente</option>
+                <option value="Baja">Baja — mejora a largo plazo</option>
+              </select>
+              <span class="form-error" id="error-urgencia"></span>
+            </div>
+            <div class="form-group">
+              <label>¿Existe un compromiso con cliente relacionado? <span class="required">*</span></label>
+              <div class="radio-group">
+                <label class="radio-option">
+                  <input type="radio" name="compromiso" value="Sí" required />
+                  <span class="radio-custom"></span>
+                  Sí
+                </label>
+                <label class="radio-option">
+                  <input type="radio" name="compromiso" value="No" />
+                  <span class="radio-custom"></span>
+                  No
+                </label>
+              </div>
+              <span class="form-error" id="error-compromiso"></span>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+              <span class="btn-text">Enviar Solicitud</span>
+              <span class="btn-spinner" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              </span>
+            </button>
+          </div>
+
+        </form>
+
+        <!-- Success state -->
+        <div id="formSuccess" class="form-success" hidden>
+          <div class="success-icon">✓</div>
+          <h3>¡Solicitud enviada!</h3>
+          <p>Tu pedido fue registrado. El equipo de AI lo evaluará y te dará seguimiento.</p>
+          <button class="btn btn-outline" id="newRequestBtn">Enviar otra solicitud</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECCIÓN 2 — DASHBOARD
+  ═══════════════════════════════════════════════════════ -->
+  <section id="dashboard" class="section section-dark">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">02</span>
+        <h2 class="section-title">Dashboard de Pedidos</h2>
+        <p class="section-desc">Estado actualizado de todas las iniciativas por país. Visibilidad en tiempo real para la gerencia.</p>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi-card">
+          <span class="kpi-icon">📋</span>
+          <span class="kpi-value" id="kpiTotal">—</span>
+          <span class="kpi-label">Total solicitudes</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-icon">⚡</span>
+          <span class="kpi-value" id="kpiOngoing">—</span>
+          <span class="kpi-label">En progreso</span>
+        </div>
+        <div class="kpi-card kpi-card-accent">
+          <span class="kpi-icon">✅</span>
+          <span class="kpi-value" id="kpiDone">—</span>
+          <span class="kpi-label">Completados</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-icon">🤝</span>
+          <span class="kpi-value" id="kpiCompromisos">—</span>
+          <span class="kpi-label">Con compromiso cliente</span>
+        </div>
+      </div>
+
+      <!-- Kanban Board -->
+      <div class="kanban-header">
+        <h3 class="subsection-title">Tablero Kanban</h3>
+        <div class="kanban-filters">
+          <select id="kanbanFilterPais" class="filter-select">
+            <option value="">Todos los países</option>
+            <option value="México">México</option>
+            <option value="Andina">Andina</option>
+            <option value="Chile">Chile</option>
+            <option value="Argentina">Argentina</option>
+            <option value="Uruguay">Uruguay</option>
+            <option value="Brasil">Brasil</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="kanban-board" id="kanbanBoard">
+        <div class="kanban-column" id="col-backlog">
+          <div class="kanban-col-header">
+            <span class="kanban-col-dot dot-gray"></span>
+            <span class="kanban-col-title">Backlog</span>
+            <span class="kanban-col-count" id="cnt-backlog">0</span>
+          </div>
+          <div class="kanban-cards" id="cards-backlog"></div>
+        </div>
+        <div class="kanban-column" id="col-ongoing">
+          <div class="kanban-col-header">
+            <span class="kanban-col-dot dot-blue"></span>
+            <span class="kanban-col-title">On Going</span>
+            <span class="kanban-col-count" id="cnt-ongoing">0</span>
+          </div>
+          <div class="kanban-cards" id="cards-ongoing"></div>
+        </div>
+        <div class="kanban-column" id="col-done">
+          <div class="kanban-col-header">
+            <span class="kanban-col-dot dot-yellow"></span>
+            <span class="kanban-col-title">Done</span>
+            <span class="kanban-col-count" id="cnt-done">0</span>
+          </div>
+          <div class="kanban-cards" id="cards-done"></div>
+        </div>
+      </div>
+
+      <!-- Matrix -->
+      <div class="matrix-section">
+        <h3 class="subsection-title">Matriz Impacto vs Urgencia</h3>
+        <p class="subsection-desc">Solo incluye solicitudes con Impacto Estimado asignado por el equipo AI.</p>
+        <div class="matrix-wrapper">
+          <div class="matrix-y-label">← Bajo &nbsp;&nbsp;&nbsp; Impacto &nbsp;&nbsp;&nbsp; Alto →</div>
+          <div class="matrix-chart-container">
+            <canvas id="matrixChart"></canvas>
+            <div class="matrix-quadrants">
+              <div class="quadrant q-tl">Planificar</div>
+              <div class="quadrant q-tr">Hacer Ahora</div>
+              <div class="quadrant q-bl">Evaluar</div>
+              <div class="quadrant q-br">Delegar</div>
+            </div>
+          </div>
+          <div class="matrix-x-label">← Baja &nbsp;&nbsp;&nbsp; Urgencia &nbsp;&nbsp;&nbsp; Alta →</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECCIÓN 3 — REPOSITORIO
+  ═══════════════════════════════════════════════════════ -->
+  <section id="repositorio" class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">03</span>
+        <h2 class="section-title">Repositorio de Iniciativas</h2>
+        <p class="section-desc">Transparencia total. Cualquier Director puede ver qué está pidiendo cada país y evitar duplicar esfuerzos.</p>
+      </div>
+
+      <!-- Filters -->
+      <div class="repo-filters">
+        <div class="search-wrapper">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="repoSearch" class="search-input" placeholder="Buscar por problema, país, nombre..." />
+        </div>
+        <select id="repoFilterPais" class="filter-select">
+          <option value="">Todos los países</option>
+          <option value="México">México</option>
+          <option value="Andina">Andina</option>
+          <option value="Chile">Chile</option>
+          <option value="Argentina">Argentina</option>
+          <option value="Uruguay">Uruguay</option>
+          <option value="Brasil">Brasil</option>
+        </select>
+        <select id="repoFilterEstado" class="filter-select">
+          <option value="">Todos los estados</option>
+          <option value="Recibido">Recibido</option>
+          <option value="En Evaluación">En Evaluación</option>
+          <option value="Priorizado">Priorizado</option>
+          <option value="En Desarrollo">En Desarrollo</option>
+          <option value="Completado">Completado</option>
+        </select>
+      </div>
+
+      <!-- Logros (Done) -->
+      <div id="logrosSection" class="logros-section" hidden>
+        <div class="logros-header">
+          <span class="logros-icon">🏆</span>
+          <h3 class="logros-title">Logros del Área</h3>
+          <span class="logros-badge" id="logrosBadge">0</span>
+        </div>
+        <div class="repo-grid" id="logrosGrid"></div>
+      </div>
+
+      <!-- All requests -->
+      <div class="repo-grid" id="repoGrid"></div>
+      <div id="repoEmpty" class="repo-empty" hidden>
+        <span>Sin resultados para esa búsqueda.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <span class="logo-text" style="font-size:1rem">AI Strategy <span class="logo-accent">Hub</span></span>
+      <span class="footer-copy">Área de Inteligencia Artificial</span>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
