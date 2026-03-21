@@ -1,17 +1,10 @@
 /* ═══════════════════════════════════════════════════════
    AI STRATEGY HUB — app.js
-   ═══════════════════════════════════════════════════════
-
-   CONFIGURACIÓN:
-   Reemplaza SCRIPT_URL con la URL de tu Google Apps Script Web App.
-   Ver README.md para instrucciones de setup.
+   Stack: Netlify (hosting) + Supabase (base de datos)
+   El backend vive en netlify/functions/api.js
    ═══════════════════════════════════════════════════════ */
 
-const SCRIPT_URL = 'https://script.google.com/a/macros/zetabe.com/s/AKfycbwzEsXeFYYJ-e5SKKq8VgUSUvK6M74lUfv_HUqtmwSQaxNznKblMPwJd71EctaSBJfH/exec';
-
-// URL del CSV público de Google Sheets.
-// Para obtenerla: Archivo → Compartir → Publicar en la web → Hoja "Solicitudes" → CSV → Publicar → copiar URL
-const SHEET_CSV_URL = 'YOUR_GOOGLE_SHEETS_CSV_URL_HERE';
+const API_URL = '/.netlify/functions/api';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function formatDate(ts) {
@@ -125,15 +118,18 @@ function initForm() {
     };
 
     try {
-      await fetch(SCRIPT_URL, {
+      const res = await fetch(API_URL, {
         method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      showSuccess();
+      if (res.ok) {
+        showSuccess();
+      } else {
+        alert('Error al enviar. Intenta de nuevo.');
+      }
     } catch (err) {
-      showSuccess();
+      alert('Error de conexión. Intenta de nuevo.');
     } finally {
       setSubmitting(false);
     }
@@ -200,43 +196,13 @@ function showSuccess() {
 
 // ─── Data Loading ─────────────────────────────────────────────────────────────
 async function loadData() {
-  if (SHEET_CSV_URL === 'YOUR_GOOGLE_SHEETS_CSV_URL_HERE') {
-    renderAll([]);
-    return;
-  }
   try {
-    const res = await fetch(SHEET_CSV_URL);
-    const csv = await res.text();
-    renderAll(parseCSV(csv));
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    renderAll(Array.isArray(data) ? data : []);
   } catch {
     renderAll([]);
   }
-}
-
-function parseCSV(csv) {
-  const lines = csv.trim().split('\n');
-  if (lines.length < 2) return [];
-  const headers = splitCSVRow(lines[0]);
-  return lines.slice(1).map(line => {
-    const vals = splitCSVRow(line);
-    const obj = {};
-    headers.forEach((h, i) => obj[h.trim()] = (vals[i] || '').trim());
-    return obj;
-  }).filter(r => r['Nombre']);
-}
-
-function splitCSVRow(row) {
-  const result = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < row.length; i++) {
-    const ch = row[i];
-    if (ch === '"') { inQuotes = !inQuotes; }
-    else if (ch === ',' && !inQuotes) { result.push(current); current = ''; }
-    else { current += ch; }
-  }
-  result.push(current);
-  return result;
 }
 
 function renderAll(data) {
