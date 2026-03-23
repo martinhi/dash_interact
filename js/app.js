@@ -106,15 +106,16 @@ function initForm() {
     setSubmitting(true);
 
     const data = {
-      nombre: form.nombre.value.trim(),
-      pais: form.pais.value,
-      problema: form.problema.value.trim(),
-      impacto: form.impacto.value.trim(),
-      usuarios: form.usuarios.value.trim(),
-      medicion: form.medicion.value.trim(),
-      equipo: form.equipo.value.trim(),
-      urgencia: form.urgencia.value,
-      compromiso: form.compromiso.value,
+      nombre:            form.nombre.value.trim(),
+      pais:              form.pais.value,
+      problema:          form.problema.value.trim(),
+      impacto:           form.impacto.value.trim(),
+      usuarios:          form.usuarios.value.trim(),
+      medicion:          form.medicion.value.trim(),
+      equipo:            form.equipo.value.trim(),
+      urgencia:          form.urgencia.value,
+      impacto_estimado:  form.impacto_estimado.value,
+      compromiso:        form.compromiso.value,
     };
 
     try {
@@ -125,6 +126,7 @@ function initForm() {
       });
       if (res.ok) {
         showSuccess();
+        loadData();
       } else {
         alert('Error al enviar. Intenta de nuevo.');
       }
@@ -145,7 +147,7 @@ function initForm() {
 
 function validateForm(form) {
   let valid = true;
-  const required = ['nombre', 'pais', 'problema', 'impacto', 'usuarios', 'medicion', 'urgencia'];
+  const required = ['nombre', 'pais', 'problema', 'impacto', 'usuarios', 'medicion', 'urgencia', 'impacto_estimado'];
 
   required.forEach(name => {
     const el = form[name];
@@ -170,7 +172,7 @@ function validateForm(form) {
   }
 
   // Clear error on input
-  ['nombre', 'pais', 'problema', 'impacto', 'usuarios', 'medicion', 'urgencia'].forEach(name => {
+  ['nombre', 'pais', 'problema', 'impacto', 'usuarios', 'medicion', 'urgencia', 'impacto_estimado'].forEach(name => {
     form[name].addEventListener('input', () => {
       form[name].classList.remove('error');
       const err = document.getElementById(`error-${name}`);
@@ -343,22 +345,36 @@ function renderMatrix(data) {
           grid: { color: 'rgba(255,255,255,0.05)' },
           border: { color: 'rgba(255,255,255,0.1)' },
           ticks: {
-            color: '#888',
+            color: '#cccccc',
+            font: { size: 13, weight: '600' },
             callback: v => ({ 1: 'Baja', 2: 'Media', 3: 'Alta' }[Math.round(v)] || ''),
             stepSize: 1,
           },
-          title: { display: false }
+          title: {
+            display: true,
+            text: 'Urgencia →',
+            color: '#FFD700',
+            font: { size: 13, weight: '700' },
+            padding: { top: 10 },
+          }
         },
         y: {
           min: 0.5, max: 3.5,
           grid: { color: 'rgba(255,255,255,0.05)' },
           border: { color: 'rgba(255,255,255,0.1)' },
           ticks: {
-            color: '#888',
+            color: '#cccccc',
+            font: { size: 13, weight: '600' },
             callback: v => ({ 1: 'Bajo', 2: 'Medio', 3: 'Alto' }[Math.round(v)] || ''),
             stepSize: 1,
           },
-          title: { display: false }
+          title: {
+            display: true,
+            text: 'Impacto →',
+            color: '#FFD700',
+            font: { size: 13, weight: '700' },
+            padding: { bottom: 10 },
+          }
         }
       },
       plugins: {

@@ -65,12 +65,13 @@
               <label for="pais">País / Región <span class="required">*</span></label>
               <select id="pais" name="pais" required>
                 <option value="">Selecciona tu región...</option>
-                <option value="México">México</option>
                 <option value="Andina">Andina</option>
-                <option value="Chile">Chile</option>
                 <option value="Argentina">Argentina</option>
-                <option value="Uruguay">Uruguay</option>
                 <option value="Brasil">Brasil</option>
+                <option value="Chile">Chile</option>
+                <option value="LATAM">LATAM</option>
+                <option value="México">México</option>
+                <option value="Uruguay">Uruguay</option>
               </select>
               <span class="form-error" id="error-pais"></span>
             </div>
@@ -117,6 +118,19 @@
               </select>
               <span class="form-error" id="error-urgencia"></span>
             </div>
+            <div class="form-group">
+              <label for="impacto_estimado">Impacto <span class="required">*</span></label>
+              <select id="impacto_estimado" name="impacto_estimado" required>
+                <option value="">Selecciona el impacto...</option>
+                <option value="Alto">Alto — impacto crítico en el negocio</option>
+                <option value="Medio">Medio — mejora relevante</option>
+                <option value="Bajo">Bajo — mejora incremental</option>
+              </select>
+              <span class="form-error" id="error-impacto_estimado"></span>
+            </div>
+          </div>
+
+          <div class="form-row form-row-2">
             <div class="form-group">
               <label>¿Existe un compromiso con cliente relacionado? <span class="required">*</span></label>
               <div class="radio-group">
@@ -198,12 +212,13 @@
         <div class="kanban-filters">
           <select id="kanbanFilterPais" class="filter-select">
             <option value="">Todos los países</option>
-            <option value="México">México</option>
             <option value="Andina">Andina</option>
-            <option value="Chile">Chile</option>
             <option value="Argentina">Argentina</option>
-            <option value="Uruguay">Uruguay</option>
             <option value="Brasil">Brasil</option>
+            <option value="Chile">Chile</option>
+            <option value="LATAM">LATAM</option>
+            <option value="México">México</option>
+            <option value="Uruguay">Uruguay</option>
           </select>
         </div>
       </div>
@@ -240,7 +255,6 @@
         <h3 class="subsection-title">Matriz Impacto vs Urgencia</h3>
         <p class="subsection-desc">Solo incluye solicitudes con Impacto Estimado asignado por el equipo AI.</p>
         <div class="matrix-wrapper">
-          <div class="matrix-y-label">← Bajo &nbsp;&nbsp;&nbsp; Impacto &nbsp;&nbsp;&nbsp; Alto →</div>
           <div class="matrix-chart-container">
             <canvas id="matrixChart"></canvas>
             <div class="matrix-quadrants">
@@ -250,7 +264,6 @@
               <div class="quadrant q-br">Delegar</div>
             </div>
           </div>
-          <div class="matrix-x-label">← Baja &nbsp;&nbsp;&nbsp; Urgencia &nbsp;&nbsp;&nbsp; Alta →</div>
         </div>
       </div>
     </div>
@@ -275,12 +288,13 @@
         </div>
         <select id="repoFilterPais" class="filter-select">
           <option value="">Todos los países</option>
-          <option value="México">México</option>
           <option value="Andina">Andina</option>
-          <option value="Chile">Chile</option>
           <option value="Argentina">Argentina</option>
-          <option value="Uruguay">Uruguay</option>
           <option value="Brasil">Brasil</option>
+          <option value="Chile">Chile</option>
+          <option value="LATAM">LATAM</option>
+          <option value="México">México</option>
+          <option value="Uruguay">Uruguay</option>
         </select>
         <select id="repoFilterEstado" class="filter-select">
           <option value="">Todos los estados</option>

@@ -42,10 +42,10 @@ exports.handler = async (event) => {
           usuarios:           data.usuarios      || '',
           medicion:           data.medicion      || '',
           equipo:             data.equipo        || '',
-          urgencia:           data.urgencia      || '',
-          compromiso_cliente: data.compromiso    || '',
+          urgencia:           data.urgencia           || '',
+          compromiso_cliente: data.compromiso         || '',
           estado:             'Recibido',
-          impacto_estimado:   '',
+          impacto_estimado:   data.impacto_estimado   || '',
         }),
       });
 

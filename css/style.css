@@ -358,13 +358,11 @@ input.error, select.error, textarea.error {
 /* ── Matrix ────────────────────────────────────────────── */
 .matrix-section { border-top: 1px solid var(--border); padding-top: 48px; }
 
-.matrix-wrapper { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.matrix-x-label, .matrix-y-label { font-size: 0.75rem; color: var(--text-muted); letter-spacing: 0.04em; }
-.matrix-y-label { writing-mode: vertical-lr; transform: rotate(180deg); position: absolute; left: -40px; top: 50%; transform: translateY(-50%) rotate(180deg); }
+.matrix-wrapper { display: flex; justify-content: center; }
 
 .matrix-chart-container {
   position: relative;
-  width: 100%; max-width: 640px;
+  width: 100%; max-width: 600px;
   aspect-ratio: 1 / 1;
 }
 
@@ -470,12 +468,12 @@ input.error, select.error, textarea.error {
 @media (max-width: 900px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .kanban-board { grid-template-columns: 1fr; }
-  .form-row-2 { flex-direction: column; }
 }
 
 @media (max-width: 640px) {
   .section { padding: 56px 0; }
   .form-card { padding: 24px 16px; }
+  .form-row-2 { flex-direction: column; }
   .nav { display: none; }
   .nav-toggle { display: flex; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
