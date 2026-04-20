@@ -1,10 +1,15 @@
 /* ═══════════════════════════════════════════════════════
    AI STRATEGY HUB — app.js
-   Stack: Netlify (hosting) + Supabase (base de datos)
-   El backend vive en netlify/functions/api.js
+   Stack: Netlify (hosting) + Supabase (base de datos + auth)
    ═══════════════════════════════════════════════════════ */
 
-const API_URL = '/.netlify/functions/api';
+const API_URL   = '/.netlify/functions/api';
+const ADMIN_URL = '/.netlify/functions/admin';
+
+// ─── Auth state ──────────────────────────────────────────────────────────────
+let _supabase     = null;   // Supabase client
+let currentUser   = null;   // Usuario autenticado (Supabase Auth)
+let currentProfile = null;  // Perfil del usuario (tabla profiles)
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function formatDate(ts) {
@@ -52,85 +57,244 @@ function badgeCompromiso(val) {
   return '';
 }
 
-// ─── Init ────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+// Obtiene el token de sesión actual
+async function getToken() {
+  if (!_supabase) return null;
+  const { data } = await _supabase.auth.getSession();
+  return data?.session?.access_token || null;
+}
+
+// ─── Auth & Screens ──────────────────────────────────────────────────────────
+
+function showScreen(name) {
+  document.getElementById('screen-loading').hidden     = name !== 'loading';
+  document.getElementById('screen-login').hidden       = name !== 'login';
+  document.getElementById('screen-unauthorized').hidden = name !== 'unauthorized';
+  document.getElementById('screen-app').hidden         = name !== 'app';
+}
+
+document.addEventListener('DOMContentLoaded', initAuth);
+
+async function initAuth() {
+  showScreen('loading');
+
+  try {
+    // 1. Obtener configuración de Supabase desde Netlify function
+    const config = await fetch('/.netlify/functions/config').then(r => r.json());
+    const { createClient } = window.supabase;
+    _supabase = createClient(config.supabaseUrl, config.supabaseKey);
+
+    // 2. Verificar si hay sesión activa
+    const { data: { session } } = await _supabase.auth.getSession();
+    if (session) {
+      await handleSession(session);
+    } else {
+      showScreen('login');
+      initLoginScreen();
+    }
+
+    // 3. Escuchar cambios de autenticación (Google OAuth callback, logout, etc.)
+    _supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        await handleSession(session);
+      } else if (event === 'SIGNED_OUT') {
+        currentUser = null;
+        currentProfile = null;
+        showScreen('login');
+        initLoginScreen();
+      }
+    });
+  } catch (err) {
+    console.error('Error al iniciar autenticación:', err);
+    showScreen('login');
+    initLoginScreen();
+  }
+}
+
+async function handleSession(session) {
+  currentUser = session.user;
+
+  // Buscar perfil en tabla profiles
+  const { data: profile, error } = await _supabase
+    .from('profiles')
+    .select('*')
+    .eq('email', currentUser.email)
+    .single();
+
+  if (error || !profile || !profile.activo) {
+    // No está autorizado — cerrar sesión y mostrar pantalla de error
+    await _supabase.auth.signOut();
+    showScreen('unauthorized');
+    document.getElementById('btn-logout-unauth')?.addEventListener('click', async () => {
+      showScreen('login');
+      initLoginScreen();
+    });
+    return;
+  }
+
+  currentProfile = profile;
+  showScreen('app');
+  setupRoleUI();
   initPageTabs();
   initNav();
   initForm();
+  initUserMenu();
   loadData();
-});
+}
 
-// ─── Page Tabs (Hub vs Projects) ────────────────────────────────────────────
+// ─── Login Screen ────────────────────────────────────────────────────────────
+
+function initLoginScreen() {
+  // Evitar doble-bind de eventos
+  const googleBtn  = document.getElementById('btn-google-login');
+  const loginForm  = document.getElementById('form-login');
+  const loginError = document.getElementById('login-error');
+
+  if (googleBtn) {
+    googleBtn.replaceWith(googleBtn.cloneNode(true)); // reset listeners
+    document.getElementById('btn-google-login').addEventListener('click', async () => {
+      if (!_supabase) return;
+      await _supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+    });
+  }
+
+  if (loginForm) {
+    loginForm.replaceWith(loginForm.cloneNode(true)); // reset listeners
+    document.getElementById('form-login').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email    = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const errDiv   = document.getElementById('login-error');
+
+      if (!email || !password) return;
+
+      const { error } = await _supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        errDiv.textContent = 'Correo o contraseña incorrectos. Verifica tus datos.';
+        errDiv.hidden = false;
+      } else {
+        errDiv.hidden = true;
+      }
+    });
+  }
+}
+
+// ─── User Menu (logout) ───────────────────────────────────────────────────────
+
+function initUserMenu() {
+  document.getElementById('btn-logout')?.addEventListener('click', async () => {
+    await _supabase.auth.signOut();
+  });
+}
+
+// ─── Role-based UI ───────────────────────────────────────────────────────────
+
+const ROLE_LABELS = {
+  admin:        'Admin',
+  director_meli: 'Director / Meli',
+  usuario:      'Usuario',
+};
+
+function setupRoleUI() {
+  const role = currentProfile.rol;
+
+  // Mostrar nombre y rol en la barra de usuario
+  const nameEl = document.getElementById('user-display-name');
+  const roleEl = document.getElementById('user-role-badge');
+  if (nameEl) nameEl.textContent = currentProfile.nombre || currentUser.email;
+  if (roleEl) roleEl.textContent = ROLE_LABELS[role] || role;
+
+  // Visibilidad de pestañas según rol
+  // admin        → Hub + Proyectos + Admin
+  // director_meli → Hub + Proyectos
+  // usuario      → solo Proyectos
+  const tabHub      = document.getElementById('tab-hub');
+  const tabProjects = document.getElementById('tab-projects');
+  const tabAdmin    = document.getElementById('tab-admin');
+
+  if (tabHub)      tabHub.style.display      = (role === 'admin' || role === 'director_meli') ? '' : 'none';
+  if (tabProjects) tabProjects.style.display = '';
+  if (tabAdmin)    tabAdmin.style.display    = role === 'admin' ? '' : 'none';
+
+  // El usuario solo ve Proyectos → activar esa pestaña por defecto
+  if (role === 'usuario') {
+    document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
+    tabProjects?.classList.add('active');
+    document.getElementById('page-projects')?.classList.add('active');
+    document.getElementById('navHub').style.display      = 'none';
+    document.getElementById('navProjects').style.display = '';
+    const logoText = document.querySelector('.logo-text');
+    if (logoText) logoText.innerHTML = 'AI Transformation <span class="logo-accent">Team</span>';
+  }
+}
+
+// ─── Page Tabs (Hub / Projects / Admin) ──────────────────────────────────────
+
 function initPageTabs() {
   const tabs = document.querySelectorAll('.page-tab');
   const pages = document.querySelectorAll('.page-content');
-  const navHub = document.getElementById('navHub');
+  const navHub      = document.getElementById('navHub');
   const navProjects = document.getElementById('navProjects');
-  const logoText = document.querySelector('.logo-text');
+  const navAdmin    = document.getElementById('navAdmin');
+  const logoText    = document.querySelector('.logo-text');
 
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const target = tab.dataset.page;
 
-      // Update tab active state
       tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
 
-      // Show/hide pages
       pages.forEach(p => p.classList.remove('active'));
-      const activePage = document.getElementById('page-' + target);
-      if (activePage) activePage.classList.add('active');
+      document.getElementById('page-' + target)?.classList.add('active');
 
-      // Switch nav links
-      if (navHub && navProjects) {
-        navHub.style.display = target === 'hub' ? '' : 'none';
-        navProjects.style.display = target === 'projects' ? '' : 'none';
-      }
+      // Cambiar nav y logo según página
+      if (navHub)      navHub.style.display      = target === 'hub'      ? '' : 'none';
+      if (navProjects) navProjects.style.display  = target === 'projects' ? '' : 'none';
+      if (navAdmin)    navAdmin.style.display     = target === 'admin'    ? '' : 'none';
 
-      // Update logo text
       if (logoText) {
-        if (target === 'hub') {
-          logoText.innerHTML = 'AI Strategy <span class="logo-accent">Hub</span>';
-        } else {
-          logoText.innerHTML = 'AI Transformation <span class="logo-accent">Team</span>';
-        }
+        if (target === 'hub')      logoText.innerHTML = 'AI Strategy <span class="logo-accent">Hub</span>';
+        if (target === 'projects') logoText.innerHTML = 'AI Transformation <span class="logo-accent">Team</span>';
+        if (target === 'admin')    logoText.innerHTML = 'Admin <span class="logo-accent">Panel</span>';
       }
 
-      // Scroll to top
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Cargar usuarios al entrar al panel admin
+      if (target === 'admin') loadAdminUsers();
 
-      // Close mobile nav if open
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       document.querySelectorAll('.nav').forEach(n => n.classList.remove('open'));
     });
   });
 }
 
 // ─── Navigation ─────────────────────────────────────────────────────────────
+
 function initNav() {
   const toggle = document.getElementById('navToggle');
-  const nav = document.getElementById('navHub');
-  if (!toggle || !nav) return;
+  if (!toggle) return;
 
   toggle.addEventListener('click', () => {
-    // Toggle the currently visible nav
-    const hubNav = document.getElementById('navHub');
+    const hubNav  = document.getElementById('navHub');
     const projNav = document.getElementById('navProjects');
-    const activeNav = (hubNav && hubNav.style.display !== 'none') ? hubNav : projNav;
+    const admNav  = document.getElementById('navAdmin');
+    const activeNav = [hubNav, projNav, admNav].find(n => n && n.style.display !== 'none');
     if (activeNav) activeNav.classList.toggle('open');
   });
 
-  // Close on nav link click
   document.querySelectorAll('.nav-link').forEach(link => {
     link.addEventListener('click', () => {
       document.querySelectorAll('.nav').forEach(n => n.classList.remove('open'));
     });
   });
 
-  // Active state on scroll
-  const sections = document.querySelectorAll('section[id]');
-  const navLinks = document.querySelectorAll('.nav-link');
-
-  const observer = new IntersectionObserver((entries) => {
+  const sections  = document.querySelectorAll('section[id]');
+  const navLinks  = document.querySelectorAll('.nav-link');
+  const observer  = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         navLinks.forEach(l => l.classList.remove('active'));
@@ -139,41 +303,42 @@ function initNav() {
       }
     });
   }, { threshold: 0.4 });
-
   sections.forEach(s => observer.observe(s));
 }
 
 // ─── Form ────────────────────────────────────────────────────────────────────
-function initForm() {
-  const form = document.getElementById('aiForm');
-  const submitBtn = document.getElementById('submitBtn');
-  const newRequestBtn = document.getElementById('newRequestBtn');
 
+function initForm() {
+  const form          = document.getElementById('aiForm');
+  const newRequestBtn = document.getElementById('newRequestBtn');
   if (!form) return;
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!validateForm(form)) return;
-
     setSubmitting(true);
 
     const data = {
-      nombre:            form.nombre.value.trim(),
-      pais:              form.pais.value,
-      problema:          form.problema.value.trim(),
-      impacto:           form.impacto.value.trim(),
-      usuarios:          form.usuarios.value.trim(),
-      medicion:          form.medicion.value.trim(),
-      equipo:            form.equipo.value.trim(),
-      urgencia:          form.urgencia.value,
-      impacto_estimado:  form.impacto_estimado.value,
-      compromiso:        form.compromiso.value,
+      nombre:           form.nombre.value.trim(),
+      pais:             form.pais.value,
+      problema:         form.problema.value.trim(),
+      impacto:          form.impacto.value.trim(),
+      usuarios:         form.usuarios.value.trim(),
+      medicion:         form.medicion.value.trim(),
+      equipo:           form.equipo.value.trim(),
+      urgencia:         form.urgencia.value,
+      impacto_estimado: form.impacto_estimado.value,
+      compromiso:       form.compromiso.value,
     };
 
     try {
+      const token = await getToken();
       const res = await fetch(API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(data),
       });
       if (res.ok) {
@@ -182,7 +347,7 @@ function initForm() {
       } else {
         alert('Error al enviar. Intenta de nuevo.');
       }
-    } catch (err) {
+    } catch {
       alert('Error de conexión. Intenta de nuevo.');
     } finally {
       setSubmitting(false);
@@ -202,7 +367,7 @@ function validateForm(form) {
   const required = ['nombre', 'pais', 'problema', 'impacto', 'usuarios', 'medicion', 'urgencia', 'impacto_estimado'];
 
   required.forEach(name => {
-    const el = form[name];
+    const el  = form[name];
     const err = document.getElementById(`error-${name}`);
     if (!el.value.trim()) {
       el.classList.add('error');
@@ -214,7 +379,6 @@ function validateForm(form) {
     }
   });
 
-  // Radio: compromiso
   const compromisoErr = document.getElementById('error-compromiso');
   if (!form.compromiso.value) {
     if (compromisoErr) compromisoErr.textContent = 'Selecciona una opción.';
@@ -223,7 +387,6 @@ function validateForm(form) {
     if (compromisoErr) compromisoErr.textContent = '';
   }
 
-  // Clear error on input
   ['nombre', 'pais', 'problema', 'impacto', 'usuarios', 'medicion', 'urgencia', 'impacto_estimado'].forEach(name => {
     form[name].addEventListener('input', () => {
       form[name].classList.remove('error');
@@ -249,9 +412,13 @@ function showSuccess() {
 }
 
 // ─── Data Loading ─────────────────────────────────────────────────────────────
+
 async function loadData() {
   try {
-    const res = await fetch(API_URL);
+    const token = await getToken();
+    const res = await fetch(API_URL, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    });
     const data = await res.json();
     renderAll(Array.isArray(data) ? data : []);
   } catch {
@@ -269,15 +436,16 @@ function renderAll(data) {
 }
 
 // ─── KPIs ─────────────────────────────────────────────────────────────────────
+
 function renderKPIs(data) {
-  const total = data.length;
-  const done = data.filter(d => d.Estado === 'Completado').length;
-  const ongoing = data.filter(d => ['Priorizado', 'En Desarrollo'].includes(d.Estado)).length;
+  const total       = data.length;
+  const done        = data.filter(d => d.Estado === 'Completado').length;
+  const ongoing     = data.filter(d => ['Priorizado', 'En Desarrollo'].includes(d.Estado)).length;
   const compromisos = data.filter(d => d['Compromiso con Cliente'] === 'Sí').length;
 
-  animateCount('kpiTotal', total);
-  animateCount('kpiDone', done);
-  animateCount('kpiOngoing', ongoing);
+  animateCount('kpiTotal',       total);
+  animateCount('kpiDone',        done);
+  animateCount('kpiOngoing',     ongoing);
   animateCount('kpiCompromisos', compromisos);
 }
 
@@ -294,24 +462,25 @@ function animateCount(id, target) {
 }
 
 // ─── Kanban ───────────────────────────────────────────────────────────────────
+
 const KANBAN_BACKLOG = ['Recibido', 'En Evaluación'];
 const KANBAN_ONGOING = ['Priorizado', 'En Desarrollo'];
-const KANBAN_DONE = ['Completado'];
+const KANBAN_DONE    = ['Completado'];
 
 function renderKanban(data, filterPais = '') {
   const filtered = filterPais ? data.filter(d => d.País === filterPais) : data;
 
   const backlog = filtered.filter(d => KANBAN_BACKLOG.includes(d.Estado));
   const ongoing = filtered.filter(d => KANBAN_ONGOING.includes(d.Estado));
-  const done = filtered.filter(d => KANBAN_DONE.includes(d.Estado));
+  const done    = filtered.filter(d => KANBAN_DONE.includes(d.Estado));
 
   document.getElementById('cnt-backlog').textContent = backlog.length;
   document.getElementById('cnt-ongoing').textContent = ongoing.length;
-  document.getElementById('cnt-done').textContent = done.length;
+  document.getElementById('cnt-done').textContent    = done.length;
 
   document.getElementById('cards-backlog').innerHTML = backlog.length ? backlog.map(kanbanCard).join('') : emptyCol();
   document.getElementById('cards-ongoing').innerHTML = ongoing.length ? ongoing.map(kanbanCard).join('') : emptyCol();
-  document.getElementById('cards-done').innerHTML = done.length ? done.map(kanbanCard).join('') : emptyCol();
+  document.getElementById('cards-done').innerHTML    = done.length    ? done.map(kanbanCard).join('')    : emptyCol();
 }
 
 function emptyCol() {
@@ -343,10 +512,11 @@ function initKanbanFilter(data) {
 }
 
 // ─── Matrix (Impacto vs Urgencia) ─────────────────────────────────────────────
+
 let matrixChartInstance = null;
 
 const URGENCIA_MAP = { 'Baja': 1, 'Media': 2, 'Alta': 3 };
-const IMPACTO_MAP = { 'Bajo': 1, 'Medio': 2, 'Alto': 3 };
+const IMPACTO_MAP  = { 'Bajo': 1, 'Medio': 2, 'Alto': 3 };
 
 function renderMatrix(data) {
   const eligible = data.filter(d => d['Impacto Estimado'] && d.Urgencia &&
@@ -357,10 +527,10 @@ function renderMatrix(data) {
   const points = eligible.map(d => ({
     x: URGENCIA_MAP[d.Urgencia] + (Math.random() * 0.3 - 0.15),
     y: IMPACTO_MAP[d['Impacto Estimado']] + (Math.random() * 0.3 - 0.15),
-    label: d.Nombre,
-    pais: d.País,
+    label:    d.Nombre,
+    pais:     d.País,
     problema: truncate(d.Problema, 60),
-    estado: d.Estado,
+    estado:   d.Estado,
   }));
 
   const ctx = document.getElementById('matrixChart');
@@ -373,19 +543,18 @@ function renderMatrix(data) {
     data: {
       datasets: [{
         label: 'Solicitudes',
-        data: points,
+        data:  points,
         backgroundColor: points.map(p => {
           const urgH = p.x >= 2.5;
           const impH = p.y >= 2.5;
-          if (urgH && impH) return 'rgba(255,215,0,0.85)';
-          if (!urgH && impH) return 'rgba(59,130,246,0.85)';
-          if (urgH && !impH) return 'rgba(249,115,22,0.85)';
+          if (urgH && impH)   return 'rgba(255,215,0,0.85)';
+          if (!urgH && impH)  return 'rgba(59,130,246,0.85)';
+          if (urgH && !impH)  return 'rgba(249,115,22,0.85)';
           return 'rgba(107,114,128,0.85)';
         }),
         borderColor: 'rgba(0,0,0,0.3)',
         borderWidth: 1,
-        pointRadius: 9,
-        pointHoverRadius: 12,
+        pointRadius: 9, pointHoverRadius: 12,
       }]
     },
     options: {
@@ -394,58 +563,38 @@ function renderMatrix(data) {
       scales: {
         x: {
           min: 0.5, max: 3.5,
-          grid: { color: 'rgba(255,255,255,0.05)' },
-          border: { color: 'rgba(255,255,255,0.1)' },
+          grid:   { color: 'rgba(255,255,255,0.05)' },
+          border: { color: 'rgba(255,255,255,0.1)'  },
           ticks: {
-            color: '#cccccc',
-            font: { size: 13, weight: '600' },
+            color: '#cccccc', font: { size: 13, weight: '600' },
             callback: v => ({ 1: 'Baja', 2: 'Media', 3: 'Alta' }[Math.round(v)] || ''),
             stepSize: 1,
           },
-          title: {
-            display: true,
-            text: 'Urgencia →',
-            color: '#FFD700',
-            font: { size: 13, weight: '700' },
-            padding: { top: 10 },
-          }
+          title: { display: true, text: 'Urgencia →', color: '#FFD700', font: { size: 13, weight: '700' }, padding: { top: 10 } }
         },
         y: {
           min: 0.5, max: 3.5,
-          grid: { color: 'rgba(255,255,255,0.05)' },
-          border: { color: 'rgba(255,255,255,0.1)' },
+          grid:   { color: 'rgba(255,255,255,0.05)' },
+          border: { color: 'rgba(255,255,255,0.1)'  },
           ticks: {
-            color: '#cccccc',
-            font: { size: 13, weight: '600' },
+            color: '#cccccc', font: { size: 13, weight: '600' },
             callback: v => ({ 1: 'Bajo', 2: 'Medio', 3: 'Alto' }[Math.round(v)] || ''),
             stepSize: 1,
           },
-          title: {
-            display: true,
-            text: 'Impacto →',
-            color: '#FFD700',
-            font: { size: 13, weight: '700' },
-            padding: { bottom: 10 },
-          }
+          title: { display: true, text: 'Impacto →', color: '#FFD700', font: { size: 13, weight: '700' }, padding: { bottom: 10 } }
         }
       },
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1a1a1a',
-          borderColor: '#333',
-          borderWidth: 1,
-          titleColor: '#FFD700',
-          bodyColor: '#ccc',
-          padding: 12,
+          backgroundColor: '#1a1a1a', borderColor: '#333', borderWidth: 1,
+          titleColor: '#FFD700', bodyColor: '#ccc', padding: 12,
           callbacks: {
-            title: ctx => ctx[0].raw.label + ' — ' + ctx[0].raw.pais,
-            label: ctx => ctx.raw.problema,
+            title:      ctx => ctx[0].raw.label + ' — ' + ctx[0].raw.pais,
+            label:      ctx => ctx.raw.problema,
             afterLabel: ctx => 'Estado: ' + ctx.raw.estado,
           }
         },
-        // Draw quadrant dividing lines
-        annotation: undefined,
       },
     },
     plugins: [{
@@ -456,10 +605,9 @@ function renderMatrix(data) {
         const midY = y.getPixelForValue(2);
         c.save();
         c.strokeStyle = 'rgba(255,255,255,0.08)';
-        c.lineWidth = 1;
-        c.setLineDash([6, 4]);
-        c.beginPath(); c.moveTo(midX, top); c.lineTo(midX, bottom); c.stroke();
-        c.beginPath(); c.moveTo(left, midY); c.lineTo(right, midY); c.stroke();
+        c.lineWidth = 1; c.setLineDash([6, 4]);
+        c.beginPath(); c.moveTo(midX, top);  c.lineTo(midX, bottom); c.stroke();
+        c.beginPath(); c.moveTo(left, midY); c.lineTo(right, midY);  c.stroke();
         c.restore();
       }
     }]
@@ -467,6 +615,7 @@ function renderMatrix(data) {
 }
 
 // ─── Repository ───────────────────────────────────────────────────────────────
+
 let allData = [];
 
 function renderRepository(data) {
@@ -476,25 +625,23 @@ function renderRepository(data) {
 
 function applyRepoFilters() {
   const search = (document.getElementById('repoSearch')?.value || '').toLowerCase();
-  const pais = document.getElementById('repoFilterPais')?.value || '';
+  const pais   = document.getElementById('repoFilterPais')?.value  || '';
   const estado = document.getElementById('repoFilterEstado')?.value || '';
 
   let filtered = allData.filter(d => {
     const matchSearch = !search || [d.Nombre, d.País, d.Problema, d['Impacto Actual']]
       .some(f => (f || '').toLowerCase().includes(search));
-    const matchPais = !pais || d.País === pais;
+    const matchPais   = !pais   || d.País   === pais;
     const matchEstado = !estado || d.Estado === estado;
     return matchSearch && matchPais && matchEstado;
   });
 
-  // Split done vs others
-  const done = filtered.filter(d => d.Estado === 'Completado');
+  const done   = filtered.filter(d => d.Estado === 'Completado');
   const others = filtered.filter(d => d.Estado !== 'Completado');
 
-  // Logros section
   const logrosSection = document.getElementById('logrosSection');
-  const logrosGrid = document.getElementById('logrosGrid');
-  const logrosBadge = document.getElementById('logrosBadge');
+  const logrosGrid    = document.getElementById('logrosGrid');
+  const logrosBadge   = document.getElementById('logrosBadge');
   if (done.length && logrosSection && logrosGrid) {
     logrosSection.hidden = false;
     logrosBadge.textContent = done.length;
@@ -504,8 +651,7 @@ function applyRepoFilters() {
     logrosSection.hidden = true;
   }
 
-  // Main grid
-  const grid = document.getElementById('repoGrid');
+  const grid  = document.getElementById('repoGrid');
   const empty = document.getElementById('repoEmpty');
   if (!grid) return;
 
@@ -547,7 +693,7 @@ function repoCard(d) {
         </div>
         <div class="detail-row">
           <span class="detail-label">¿Cómo medimos el éxito?</span>
-          <span class="detail-value">${d.Medición || '—'}</span>
+          <span class="detail-value">${d['Medición'] || '—'}</span>
         </div>
         ${d.Equipo ? `<div class="detail-row">
           <span class="detail-label">Equipo de apoyo</span>
@@ -563,7 +709,7 @@ function attachCardToggles(container) {
   container.querySelectorAll('.repo-card-toggle').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const card = btn.closest('.repo-card');
+      const card     = btn.closest('.repo-card');
       const expanded = card.classList.toggle('expanded');
       btn.textContent = expanded ? 'Ver menos ↑' : 'Ver más ↓';
     });
@@ -571,7 +717,181 @@ function attachCardToggles(container) {
 }
 
 function initRepoFilters(data) {
-  document.getElementById('repoSearch')?.addEventListener('input', applyRepoFilters);
+  document.getElementById('repoSearch')?.addEventListener('input',  applyRepoFilters);
   document.getElementById('repoFilterPais')?.addEventListener('change', applyRepoFilters);
   document.getElementById('repoFilterEstado')?.addEventListener('change', applyRepoFilters);
+}
+
+// ─── Admin Panel ──────────────────────────────────────────────────────────────
+
+async function loadAdminUsers() {
+  const tbody = document.getElementById('admin-users-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="5" class="admin-empty">Cargando...</td></tr>`;
+
+  try {
+    const token = await getToken();
+    const res = await fetch(ADMIN_URL, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    const users = await res.json();
+    if (!Array.isArray(users) || !users.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="admin-empty">No hay usuarios registrados.</td></tr>`;
+      return;
+    }
+    renderAdminUsers(users);
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" class="admin-empty">Error al cargar usuarios.</td></tr>`;
+  }
+}
+
+function roleBadge(rol) {
+  if (rol === 'admin')         return `<span class="badge-rol badge-rol-admin">Admin</span>`;
+  if (rol === 'director_meli') return `<span class="badge-rol badge-rol-director">Director / Meli</span>`;
+  return `<span class="badge-rol badge-rol-usuario">Usuario</span>`;
+}
+
+function renderAdminUsers(users) {
+  const tbody = document.getElementById('admin-users-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = users.map(u => `
+    <tr data-id="${u.id}">
+      <td>${u.nombre || '<span style="color:var(--text-dim)">—</span>'}</td>
+      <td style="color:var(--text-muted);font-size:0.85rem">${u.email}</td>
+      <td>${roleBadge(u.rol)}</td>
+      <td>
+        <label class="toggle-switch">
+          <input type="checkbox" class="toggle-activo" data-id="${u.id}" ${u.activo ? 'checked' : ''} />
+          <span class="toggle-slider"></span>
+        </label>
+      </td>
+      <td>
+        <button class="btn-table-edit" data-id="${u.id}">Editar</button>
+      </td>
+    </tr>
+  `).join('');
+
+  // Toggle activo
+  tbody.querySelectorAll('.toggle-activo').forEach(toggle => {
+    toggle.addEventListener('change', async (e) => {
+      const id     = e.target.dataset.id;
+      const activo = e.target.checked;
+      await patchUser(id, { activo });
+    });
+  });
+
+  // Edit button
+  tbody.querySelectorAll('.btn-table-edit').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id   = btn.dataset.id;
+      const user = users.find(u => u.id === id);
+      if (user) openUserModal(user);
+    });
+  });
+}
+
+// ─── User Modal ───────────────────────────────────────────────────────────────
+
+function openUserModal(user = null) {
+  const modal    = document.getElementById('modal-user');
+  const titleEl  = document.getElementById('modal-title');
+  const idInput  = document.getElementById('modal-user-id');
+  const nombre   = document.getElementById('modal-user-nombre');
+  const email    = document.getElementById('modal-user-email');
+  const rolSel   = document.getElementById('modal-user-rol');
+
+  const isEdit = !!user;
+  titleEl.textContent  = isEdit ? 'Editar Usuario' : 'Agregar Usuario';
+  idInput.value        = user?.id    || '';
+  nombre.value         = user?.nombre || '';
+  email.value          = user?.email  || '';
+  rolSel.value         = user?.rol    || 'usuario';
+  email.disabled       = isEdit; // no se puede cambiar el email una vez creado
+
+  modal.hidden = false;
+}
+
+function closeUserModal() {
+  document.getElementById('modal-user').hidden = true;
+  document.getElementById('form-modal-user').reset();
+  document.getElementById('modal-user-email').disabled = false;
+}
+
+// Inicializar eventos del modal
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-add-user')?.addEventListener('click', () => openUserModal());
+  document.getElementById('btn-modal-close')?.addEventListener('click', closeUserModal);
+  document.getElementById('btn-modal-cancel')?.addEventListener('click', closeUserModal);
+
+  // Cerrar al hacer clic fuera del card
+  document.getElementById('modal-user')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modal-user')) closeUserModal();
+  });
+
+  document.getElementById('form-modal-user')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id     = document.getElementById('modal-user-id').value;
+    const nombre = document.getElementById('modal-user-nombre').value.trim();
+    const email  = document.getElementById('modal-user-email').value.trim();
+    const rol    = document.getElementById('modal-user-rol').value;
+
+    if (!email || !rol) return;
+
+    const saveBtn = document.getElementById('btn-modal-save');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Guardando...';
+
+    try {
+      const token = await getToken();
+      let res;
+      if (id) {
+        // Editar
+        res = await fetch(ADMIN_URL, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ id, nombre, rol }),
+        });
+      } else {
+        // Crear
+        res = await fetch(ADMIN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ email, nombre, rol }),
+        });
+      }
+
+      if (res.ok) {
+        closeUserModal();
+        loadAdminUsers();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Error al guardar. Intenta de nuevo.');
+      }
+    } catch {
+      alert('Error de conexión.');
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Guardar';
+    }
+  });
+});
+
+async function patchUser(id, updates) {
+  try {
+    const token = await getToken();
+    const res = await fetch(ADMIN_URL, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ id, ...updates }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.error || 'Error al actualizar.');
+      loadAdminUsers(); // recargar para revertir el toggle
+    }
+  } catch {
+    alert('Error de conexión.');
+    loadAdminUsers();
+  }
 }
