@@ -93,7 +93,7 @@ function initPageTabs() {
         if (target === 'hub') {
           logoText.innerHTML = 'AI Strategy <span class="logo-accent">Hub</span>';
         } else {
-          logoText.innerHTML = 'AI Transformation <span class="logo-accent">Team</span>';
+          logoText.innerHTML = 'Hub de Proyectos <span class="logo-accent">IA</span>';
         }
       }
 
@@ -325,6 +325,9 @@ function emptyCol() {
 }
 
 function kanbanCard(d) {
+  const asignadoChip = d.Asignado
+    ? `<span class="kanban-card-asignado" title="Asignado a ${d.Asignado}"><span class="kanban-card-asignado-icon">${getInitialsSafe(d.Asignado)}</span>${d.Asignado}</span>`
+    : '';
   return `
     <div class="kanban-card">
       <div class="kanban-card-top">
@@ -338,8 +341,16 @@ function kanbanCard(d) {
         ${badgeUrgencia(d.Urgencia)}
         ${badgeCompromiso(d['Compromiso con Cliente'])}
       </div>
+      ${asignadoChip ? `<div class="kanban-card-asignado-row">${asignadoChip}</div>` : ''}
     </div>
   `;
+}
+
+function getInitialsSafe(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 function initKanbanFilter(data) {
@@ -559,6 +570,12 @@ function repoCard(d) {
           <span class="detail-label">Equipo de apoyo</span>
           <span class="detail-value">${d.Equipo}</span>
         </div>` : ''}
+        ${d.Asignado ? `<div class="detail-row detail-row-asignado">
+          <span class="detail-label">Responsable asignado</span>
+          <span class="detail-value detail-value-asignado">
+            <span class="kanban-card-asignado-icon">${getInitialsSafe(d.Asignado)}</span>${d.Asignado}
+          </span>
+        </div>` : ''}
       </div>
       <button class="repo-card-toggle">Ver más ↓</button>
     </div>
@@ -591,9 +608,69 @@ const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024; // 1.5 MB
 
 function initProjects() {
   initProjectModal();
+  initProjectSearch();
   // Cargar proyectos al iniciar si la pestaña de proyectos está activa
   if (document.getElementById('page-projects')?.classList.contains('active')) {
     loadProjects();
+  }
+}
+
+// Cache local de los proyectos para filtrado en cliente
+let _allProjects = [];
+
+// ─── Buscador y filtros ────────────────────────────────────────────────────
+function initProjectSearch() {
+  const searchInput = document.getElementById('projectsSearch');
+  const filterEstado = document.getElementById('projectsFilterEstado');
+
+  searchInput?.addEventListener('input', applyProjectFilters);
+  filterEstado?.addEventListener('change', applyProjectFilters);
+}
+
+function applyProjectFilters() {
+  const searchInput = document.getElementById('projectsSearch');
+  const filterEstado = document.getElementById('projectsFilterEstado');
+  const grid = document.getElementById('projectsGrid');
+  const empty = document.getElementById('projectsEmpty');
+  const noResults = document.getElementById('projectsNoResults');
+  const countEl = document.getElementById('projectsCount');
+
+  if (!grid) return;
+
+  const term = (searchInput?.value || '').toLowerCase().trim();
+  const estado = filterEstado?.value || '';
+
+  const filtered = _allProjects.filter(p => {
+    const matchEstado = !estado || (p.estado || '') === estado;
+    const haystack = [p.nombre, p.owner, p.descripcion, p.estado]
+      .filter(Boolean).join(' ').toLowerCase();
+    const matchTerm = !term || haystack.includes(term);
+    return matchEstado && matchTerm;
+  });
+
+  // Estados visuales
+  if (_allProjects.length === 0) {
+    empty.hidden = false;
+    noResults.hidden = true;
+    grid.innerHTML = '';
+    if (countEl) countEl.textContent = '';
+    return;
+  }
+
+  empty.hidden = true;
+  if (filtered.length === 0) {
+    noResults.hidden = false;
+    grid.innerHTML = '';
+  } else {
+    noResults.hidden = true;
+    grid.innerHTML = filtered.map(renderProjectCard).join('');
+  }
+
+  if (countEl) {
+    const total = _allProjects.length;
+    countEl.textContent = filtered.length === total
+      ? `${total} ${total === 1 ? 'proyecto' : 'proyectos'}`
+      : `${filtered.length} de ${total}`;
   }
 }
 
@@ -602,11 +679,13 @@ async function loadProjects() {
   const grid = document.getElementById('projectsGrid');
   const loading = document.getElementById('projectsLoading');
   const empty = document.getElementById('projectsEmpty');
+  const noResults = document.getElementById('projectsNoResults');
 
   if (!grid) return;
 
   loading.hidden = false;
   empty.hidden = true;
+  if (noResults) noResults.hidden = true;
   grid.innerHTML = '';
 
   try {
@@ -615,13 +694,9 @@ async function loadProjects() {
     const projects = await res.json();
 
     loading.hidden = true;
+    _allProjects = Array.isArray(projects) ? projects : [];
 
-    if (!Array.isArray(projects) || projects.length === 0) {
-      empty.hidden = false;
-      return;
-    }
-
-    grid.innerHTML = projects.map(renderProjectCard).join('');
+    applyProjectFilters();
   } catch (err) {
     console.error('Error cargando proyectos:', err);
     loading.hidden = true;
@@ -637,7 +712,18 @@ function renderProjectCard(p) {
   const descripcion = escapeHtml(p.descripcion || '');
   const owner = escapeHtml(p.owner || '—');
   const link = p.link || '#';
+  const estado = p.estado || '';
   const initials = getInitials(p.owner || '?');
+
+  // Badge de estado
+  const estadoClass = {
+    'En desarrollo': 'status-dev',
+    'En prueba':     'status-test',
+    'Activo':        'status-active',
+  }[estado] || '';
+  const estadoBadge = estado
+    ? `<span class="project-card-status ${estadoClass}"><span class="project-card-status-dot"></span>${escapeHtml(estado)}</span>`
+    : '';
 
   const coverHtml = p.imagen_url
     ? `<img src="${escapeHtml(p.imagen_url)}" alt="${nombre}" class="project-card-img" />`
@@ -662,6 +748,7 @@ function renderProjectCard(p) {
     <a href="${escapeHtml(link)}" target="_blank" rel="noopener" class="project-card">
       <div class="${coverClass}" ${coverStyle}>
         ${coverHtml}
+        ${estadoBadge}
       </div>
       <div class="project-card-body">
         <h3 class="project-card-title">${nombre}</h3>
@@ -814,6 +901,7 @@ function initProjectModal() {
         descripcion: form.descripcion.value.trim(),
         link:        form.link.value.trim(),
         owner:       form.owner.value.trim(),
+        estado:      form.estado.value.trim(),
       };
 
       // Si hay imagen, leerla como base64
@@ -858,6 +946,7 @@ function validateProjectForm(form) {
     { name: 'owner',       id: 'error-projOwner',       label: 'owner' },
     { name: 'descripcion', id: 'error-projDescripcion', label: 'descripción' },
     { name: 'link',        id: 'error-projLink',        label: 'link' },
+    { name: 'estado',      id: 'error-projEstado',      label: 'estado' },
   ];
 
   fields.forEach(f => {
@@ -878,7 +967,7 @@ function validateProjectForm(form) {
 }
 
 function clearProjectErrors() {
-  ['error-projNombre','error-projOwner','error-projDescripcion','error-projLink','error-projImagen']
+  ['error-projNombre','error-projOwner','error-projDescripcion','error-projLink','error-projEstado','error-projImagen']
     .forEach(id => { const el = document.getElementById(id); if (el) el.textContent = ''; });
 }
 
