@@ -93,6 +93,7 @@ async function handleSolicitudes(event) {
         'Compromiso con Cliente': r.compromiso_cliente,
         Estado:                  r.estado,
         'Impacto Estimado':      r.impacto_estimado,
+        Asignado:                r.asignado,
       }));
       return { statusCode: 200, headers: HEADERS, body: JSON.stringify(data) };
     } catch (err) {
@@ -165,6 +166,7 @@ async function handleProyectos(event) {
           descripcion: data.descripcion,
           link:        data.link,
           owner:       data.owner,
+          estado:      data.estado || 'En desarrollo',
           imagen_url:  imagen_url,
         }),
       });
