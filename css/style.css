@@ -536,6 +536,101 @@ a.project-card:hover {
   z-index: 2;
 }
 
+/* ── Status Badge en tarjeta ───────────────────────── */
+.project-card-status {
+  position: absolute; top: 12px; left: 12px;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 0.68rem; font-weight: 700;
+  padding: 5px 10px 5px 8px;
+  border-radius: 100px;
+  letter-spacing: 0.02em;
+  z-index: 2;
+  text-transform: uppercase;
+}
+.project-card-status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #fff;
+  animation: statusPulse 2s ease-in-out infinite;
+}
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+.project-card-status.status-dev    { color: #FFD700; }
+.project-card-status.status-dev .project-card-status-dot    { background: #FFD700; box-shadow: 0 0 8px rgba(255,215,0,0.6); }
+.project-card-status.status-test   { color: #60A5FA; }
+.project-card-status.status-test .project-card-status-dot   { background: #60A5FA; box-shadow: 0 0 8px rgba(96,165,250,0.6); }
+.project-card-status.status-active { color: #4ADE80; }
+.project-card-status.status-active .project-card-status-dot { background: #4ADE80; box-shadow: 0 0 8px rgba(74,222,128,0.6); }
+
+/* ── Controles del Hub de Proyectos (buscador + filtro) ── */
+.projects-controls {
+  display: flex; align-items: center; gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.projects-search {
+  position: relative;
+  flex: 1; min-width: 220px;
+}
+.projects-search-icon {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.projects-search input {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 11px 14px 11px 40px;
+  border-radius: var(--radius);
+  font-family: inherit; font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+.projects-search input::placeholder { color: var(--text-dim); }
+.projects-search input:focus {
+  outline: none;
+  border-color: var(--yellow);
+}
+.projects-count {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── Asignado en Kanban / Repo ────────────────────── */
+.kanban-card-asignado-row {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.kanban-card-asignado {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.72rem; font-weight: 600;
+  color: var(--text);
+}
+.kanban-card-asignado-icon {
+  width: 20px; height: 20px;
+  background: var(--yellow-bg);
+  border: 1px solid rgba(255,215,0,0.4);
+  border-radius: 100px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--yellow);
+  font-size: 0.62rem; font-weight: 700;
+}
+.detail-row-asignado .detail-value-asignado {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--text);
+  font-weight: 600;
+}
+
 .project-card-cover-img {
   background: var(--bg-3);
 }
