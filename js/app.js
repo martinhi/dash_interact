@@ -327,6 +327,46 @@ function renderKanban(data, filterPais = '') {
   document.getElementById('cards-ongoing').innerHTML = ongoing.length ? ongoing.map(kanbanCard).join('') : emptyCol();
   document.getElementById('cards-done').innerHTML = done.length ? done.map(kanbanCard).join('') : emptyCol();
   document.getElementById('cards-rechazado').innerHTML = rechazado.length ? rechazado.map(kanbanCard).join('') : emptyCol();
+
+  attachKanbanCardLinks();
+}
+
+function attachKanbanCardLinks() {
+  document.querySelectorAll('#kanbanBoard .kanban-card').forEach(card => {
+    const handler = () => goToRepoCard(card.dataset.id);
+    card.addEventListener('click', handler);
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
+    });
+  });
+}
+
+function goToRepoCard(id) {
+  if (!id) return;
+  const findCard = () => document.querySelector(`#repositorio .repo-card[data-id="${CSS.escape(id)}"]`);
+  let target = findCard();
+
+  if (!target) {
+    const search = document.getElementById('repoSearch');
+    const fPais = document.getElementById('repoFilterPais');
+    const fEstado = document.getElementById('repoFilterEstado');
+    if (search) search.value = '';
+    if (fPais) fPais.value = '';
+    if (fEstado) fEstado.value = '';
+    if (typeof applyRepoFilters === 'function') applyRepoFilters();
+    target = findCard();
+  }
+
+  if (!target) {
+    document.getElementById('repositorio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const expanded = target.classList.contains('expanded');
+  if (!expanded) target.querySelector('.repo-card-toggle')?.click();
+  target.classList.add('repo-card-highlight');
+  setTimeout(() => target.classList.remove('repo-card-highlight'), 2200);
 }
 
 function emptyCol() {
@@ -338,7 +378,7 @@ function kanbanCard(d) {
     ? `<span class="kanban-card-asignado" title="Asignado a ${d.Asignado}"><span class="kanban-card-asignado-icon">${getInitialsSafe(d.Asignado)}</span>${d.Asignado}</span>`
     : '';
   return `
-    <div class="kanban-card">
+    <div class="kanban-card" data-id="${d.Timestamp}" role="button" tabindex="0" title="Ver en Repositorio">
       <div class="kanban-card-top">
         <span class="kanban-card-name">${d.Nombre || '—'}</span>
         ${badgePais(d.País)}
