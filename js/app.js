@@ -457,6 +457,7 @@ function renderMatrix(data) {
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      aspectRatio: 1,
       scales: {
         x: {
           min: 0.5, max: 3.5,
