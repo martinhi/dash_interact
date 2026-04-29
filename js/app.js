@@ -635,9 +635,12 @@ function repoCard(d) {
 function commentsBlock() {
   return `
     <div class="comments-section" data-loaded="false">
-      <div class="comments-header">Comentarios</div>
+      <div class="comments-header">
+        <span>Comentarios</span>
+        <button type="button" class="comments-toggle-form" aria-expanded="false">+ Agregar</button>
+      </div>
       <div class="comments-list"><div class="comments-empty">Cargando…</div></div>
-      <form class="comments-form" novalidate>
+      <form class="comments-form" hidden novalidate>
         <input type="text" class="comments-author" placeholder="Tu nombre (opcional)" maxlength="60" />
         <textarea class="comments-text" placeholder="Escribe un comentario…" rows="2" maxlength="1000" required></textarea>
         <div class="comments-form-row">
@@ -661,6 +664,18 @@ function attachCardToggles(container) {
   });
   container.querySelectorAll('.comments-form').forEach(form => {
     form.addEventListener('submit', handleCommentSubmit);
+  });
+  container.querySelectorAll('.comments-toggle-form').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const section = btn.closest('.comments-section');
+      const form = section.querySelector('.comments-form');
+      const open = form.hidden;
+      form.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+      btn.textContent = open ? '− Cerrar' : '+ Agregar';
+      if (open) section.querySelector('.comments-text')?.focus();
+    });
   });
 }
 
@@ -728,6 +743,12 @@ async function handleCommentSubmit(e) {
     if (!res.ok) throw new Error('post failed');
     textEl.value = '';
     await loadComments(card, solicitudId);
+    form.hidden = true;
+    const toggleBtn = card.querySelector('.comments-toggle-form');
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-expanded', 'false');
+      toggleBtn.textContent = '+ Agregar';
+    }
   } catch {
     errEl.textContent = 'No se pudo enviar. Intenta de nuevo.';
     errEl.hidden = false;
