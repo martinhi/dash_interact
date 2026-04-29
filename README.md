@@ -66,7 +66,7 @@ Edita los datos directamente en el **Table Editor de Supabase**:
 
 | Columna | Qué hace el equipo |
 |---|---|
-| `estado` | `Recibido` / `En Evaluación` / `Priorizado` / `En Desarrollo` / `Completado` |
+| `estado` | `Recibido` / `En Evaluación` / `Priorizado` / `En Desarrollo` / `Completado` / `Rechazado` |
 | `impacto_estimado` | `Alto` / `Medio` / `Bajo` (aparece en la Matriz) |
 
 ---
