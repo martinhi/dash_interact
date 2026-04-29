@@ -276,7 +276,12 @@ input.error, select.error, textarea.error {
 /* ── Kanban ────────────────────────────────────────────── */
 .kanban-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 
-.kanban-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 64px; }
+.kanban-board { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 64px; }
+#col-backlog    { grid-column: span 2; }
+#col-evaluacion { grid-column: span 2; }
+#col-ongoing    { grid-column: span 2; }
+#col-done       { grid-column: span 3; }
+#col-rechazado  { grid-column: span 3; }
 
 .kanban-column {
   background: var(--bg-3); border: 1px solid var(--border);
@@ -301,7 +306,14 @@ input.error, select.error, textarea.error {
   padding: 2px 8px; border-radius: 100px;
 }
 
-.kanban-cards { display: flex; flex-direction: column; gap: 12px; }
+.kanban-cards {
+  display: flex; flex-direction: column; gap: 12px;
+  max-height: 420px; overflow-y: auto; padding-right: 4px;
+  scrollbar-width: thin; scrollbar-color: var(--border-2) transparent;
+}
+.kanban-cards::-webkit-scrollbar { width: 6px; }
+.kanban-cards::-webkit-scrollbar-track { background: transparent; }
+.kanban-cards::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
 
 .kanban-card {
   background: var(--bg-2); border: 1px solid var(--border);
