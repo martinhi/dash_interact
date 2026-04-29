@@ -29,6 +29,15 @@ create table solicitudes (
   estado           text default 'Recibido',
   impacto_estimado text default ''
 );
+
+create table comentarios (
+  id           uuid default gen_random_uuid() primary key,
+  solicitud_id uuid references solicitudes(id) on delete cascade,
+  autor        text,
+  texto        text not null,
+  created_at   timestamptz default now()
+);
+create index on comentarios (solicitud_id, created_at);
 ```
 
 4. Ve a **Project Settings → API** y anota:

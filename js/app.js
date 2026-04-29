@@ -587,7 +587,7 @@ function applyRepoFilters() {
 
 function repoCard(d) {
   return `
-    <div class="repo-card" data-id="${d.Timestamp}">
+    <div class="repo-card" data-id="${d.Timestamp}" data-solicitud-id="${escapeHtml(d.Id || '')}">
       <div class="repo-card-header">
         <div>
           <div class="repo-card-name">${d.Nombre || '—'}</div>
@@ -625,8 +625,26 @@ function repoCard(d) {
             <span class="kanban-card-asignado-icon">${getInitialsSafe(d.Asignado)}</span>${d.Asignado}
           </span>
         </div>` : ''}
+        ${d.Id ? commentsBlock() : ''}
       </div>
       <button class="repo-card-toggle">Ver más ↓</button>
+    </div>
+  `;
+}
+
+function commentsBlock() {
+  return `
+    <div class="comments-section" data-loaded="false">
+      <div class="comments-header">Comentarios</div>
+      <div class="comments-list"><div class="comments-empty">Cargando…</div></div>
+      <form class="comments-form" novalidate>
+        <input type="text" class="comments-author" placeholder="Tu nombre (opcional)" maxlength="60" />
+        <textarea class="comments-text" placeholder="Escribe un comentario…" rows="2" maxlength="1000" required></textarea>
+        <div class="comments-form-row">
+          <span class="comments-error" hidden></span>
+          <button type="submit" class="comments-submit">Comentar</button>
+        </div>
+      </form>
     </div>
   `;
 }
@@ -638,8 +656,85 @@ function attachCardToggles(container) {
       const card = btn.closest('.repo-card');
       const expanded = card.classList.toggle('expanded');
       btn.textContent = expanded ? 'Ver menos ↑' : 'Ver más ↓';
+      if (expanded) initCommentsForCard(card);
     });
   });
+  container.querySelectorAll('.comments-form').forEach(form => {
+    form.addEventListener('submit', handleCommentSubmit);
+  });
+}
+
+// ─── Comentarios ─────────────────────────────────────────────────────────────
+async function initCommentsForCard(card) {
+  const section = card.querySelector('.comments-section');
+  if (!section || section.dataset.loaded === 'true') return;
+  const solicitudId = card.dataset.solicitudId;
+  if (!solicitudId) return;
+  section.dataset.loaded = 'true';
+  await loadComments(card, solicitudId);
+}
+
+async function loadComments(card, solicitudId) {
+  const list = card.querySelector('.comments-list');
+  if (!list) return;
+  try {
+    const res = await fetch(`${API_URL}?resource=comentarios&solicitud_id=${encodeURIComponent(solicitudId)}`);
+    const rows = res.ok ? await res.json() : [];
+    renderComments(list, rows);
+  } catch {
+    list.innerHTML = `<div class="comments-empty">No se pudieron cargar los comentarios.</div>`;
+  }
+}
+
+function renderComments(list, rows) {
+  if (!rows.length) {
+    list.innerHTML = `<div class="comments-empty">Sé el primero en comentar.</div>`;
+    return;
+  }
+  list.innerHTML = rows.map(c => `
+    <div class="comment">
+      <div class="comment-head">
+        <span class="comment-author">${escapeHtml(c.autor || 'Anónimo')}</span>
+        <span class="comment-date">${formatDate(c.created_at)}</span>
+      </div>
+      <p class="comment-text">${escapeHtml(c.texto || '')}</p>
+    </div>
+  `).join('');
+}
+
+async function handleCommentSubmit(e) {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const card = form.closest('.repo-card');
+  const solicitudId = card?.dataset.solicitudId;
+  const textEl = form.querySelector('.comments-text');
+  const authorEl = form.querySelector('.comments-author');
+  const errEl = form.querySelector('.comments-error');
+  const submitBtn = form.querySelector('.comments-submit');
+  const texto = (textEl.value || '').trim();
+
+  errEl.hidden = true;
+  if (!solicitudId) { errEl.textContent = 'Solicitud sin ID'; errEl.hidden = false; return; }
+  if (!texto) { errEl.textContent = 'Escribe un comentario'; errEl.hidden = false; return; }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Enviando…';
+  try {
+    const res = await fetch(`${API_URL}?resource=comentarios`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ solicitud_id: solicitudId, autor: authorEl.value, texto }),
+    });
+    if (!res.ok) throw new Error('post failed');
+    textEl.value = '';
+    await loadComments(card, solicitudId);
+  } catch {
+    errEl.textContent = 'No se pudo enviar. Intenta de nuevo.';
+    errEl.hidden = false;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Comentar';
+  }
 }
 
 function initRepoFilters(data) {

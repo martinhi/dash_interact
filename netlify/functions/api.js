@@ -28,6 +28,9 @@ exports.handler = async (event) => {
   if (resource === 'proyectos') {
     return handleProyectos(event);
   }
+  if (resource === 'comentarios') {
+    return handleComentarios(event);
+  }
   return handleSolicitudes(event);
 };
 
@@ -81,6 +84,7 @@ async function handleSolicitudes(event) {
       );
       const rows = await res.json();
       const data = rows.map(r => ({
+        Id:                      r.id,
         Timestamp:               r.timestamp,
         Nombre:                  r.nombre,
         País:                    r.pais,
@@ -196,6 +200,60 @@ async function handleProyectos(event) {
       );
       const rows = await res.json();
       return { statusCode: 200, headers: HEADERS, body: JSON.stringify(rows) };
+    } catch (err) {
+      return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ error: err.message }) };
+    }
+  }
+
+  return { statusCode: 405, headers: HEADERS, body: 'Method not allowed' };
+}
+
+// ─── COMENTARIOS ────────────────────────────────────────────────────────────
+async function handleComentarios(event) {
+  if (event.httpMethod === 'GET') {
+    try {
+      const solicitudId = event.queryStringParameters && event.queryStringParameters.solicitud_id;
+      if (!solicitudId) {
+        return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Falta solicitud_id' }) };
+      }
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/comentarios?select=*&solicitud_id=eq.${encodeURIComponent(solicitudId)}&order=created_at.asc`,
+        {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+        }
+      );
+      const rows = await res.json();
+      return { statusCode: 200, headers: HEADERS, body: JSON.stringify(rows) };
+    } catch (err) {
+      return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ error: err.message }) };
+    }
+  }
+
+  if (event.httpMethod === 'POST') {
+    try {
+      const data = JSON.parse(event.body);
+      if (!data.solicitud_id || !data.texto || !data.texto.trim()) {
+        return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Faltan campos' }) };
+      }
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/comentarios`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=representation',
+        },
+        body: JSON.stringify({
+          solicitud_id: data.solicitud_id,
+          autor:        (data.autor || '').trim() || 'Anónimo',
+          texto:        data.texto.trim(),
+        }),
+      });
+      const body = await res.text();
+      return { statusCode: res.ok ? 200 : 500, headers: HEADERS, body };
     } catch (err) {
       return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ error: err.message }) };
     }
