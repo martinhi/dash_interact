@@ -26,6 +26,7 @@ function badgeEstado(estado) {
     'Priorizado': 'badge-estado-priorizado',
     'En Desarrollo': 'badge-estado-desarrollo',
     'Completado': 'badge-estado-completado',
+    'Rechazado': 'badge-estado-rechazado',
   };
   const cls = map[estado] || 'badge-estado-recibido';
   return `<span class="badge ${cls}">${estado || 'Recibido'}</span>`;
@@ -300,24 +301,32 @@ function animateCount(id, target) {
 }
 
 // ─── Kanban ───────────────────────────────────────────────────────────────────
-const KANBAN_BACKLOG = ['Recibido', 'En Evaluación'];
+const KANBAN_BACKLOG = ['Recibido'];
+const KANBAN_EVALUACION = ['En Evaluación'];
 const KANBAN_ONGOING = ['Priorizado', 'En Desarrollo'];
 const KANBAN_DONE = ['Completado'];
+const KANBAN_RECHAZADO = ['Rechazado'];
 
 function renderKanban(data, filterPais = '') {
   const filtered = filterPais ? data.filter(d => d.País === filterPais) : data;
 
   const backlog = filtered.filter(d => KANBAN_BACKLOG.includes(d.Estado));
+  const evaluacion = filtered.filter(d => KANBAN_EVALUACION.includes(d.Estado));
   const ongoing = filtered.filter(d => KANBAN_ONGOING.includes(d.Estado));
   const done = filtered.filter(d => KANBAN_DONE.includes(d.Estado));
+  const rechazado = filtered.filter(d => KANBAN_RECHAZADO.includes(d.Estado));
 
   document.getElementById('cnt-backlog').textContent = backlog.length;
+  document.getElementById('cnt-evaluacion').textContent = evaluacion.length;
   document.getElementById('cnt-ongoing').textContent = ongoing.length;
   document.getElementById('cnt-done').textContent = done.length;
+  document.getElementById('cnt-rechazado').textContent = rechazado.length;
 
   document.getElementById('cards-backlog').innerHTML = backlog.length ? backlog.map(kanbanCard).join('') : emptyCol();
+  document.getElementById('cards-evaluacion').innerHTML = evaluacion.length ? evaluacion.map(kanbanCard).join('') : emptyCol();
   document.getElementById('cards-ongoing').innerHTML = ongoing.length ? ongoing.map(kanbanCard).join('') : emptyCol();
   document.getElementById('cards-done').innerHTML = done.length ? done.map(kanbanCard).join('') : emptyCol();
+  document.getElementById('cards-rechazado').innerHTML = rechazado.length ? rechazado.map(kanbanCard).join('') : emptyCol();
 }
 
 function emptyCol() {
